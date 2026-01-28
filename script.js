@@ -43,7 +43,7 @@ function checkPrivacyAccepted() {
 function loadTheme() {
     let theme = localStorage.getItem("theme");
     if (!theme) {
-        theme = "dark"; // по умолчанию тёмная тема, как в концепции
+        theme = "dark"; // по умолчанию тёмная тема
         localStorage.setItem("theme", theme);
     }
     document.body.classList.toggle("dark-theme", theme === "dark");
@@ -67,10 +67,21 @@ function postsKey(interest, thread) {
 let currentInterest = "";
 let currentThread = "";
 
+// Утилита создания элемента треда (с обработчиком)
+function makeThreadElement(title) {
+    const li = document.createElement("li");
+    li.textContent = title;
+    li.tabIndex = 0;
+    li.addEventListener("click", () => openThread(title));
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter") openThread(title); });
+    return li;
+}
+
 // Загрузка тредов (и обновление sidebar)
 function loadThreads(interest) {
     currentInterest = interest;
-    document.getElementById("current-interest").textContent = "Треды в разделе: " + interest;
+    const currentInterestEl = document.getElementById("current-interest");
+    if (currentInterestEl) currentInterestEl.textContent = "Треды в разделе: " + interest;
 
     const threadList = document.getElementById("thread-list");
     const sidebarList = document.getElementById("sidebar-thread-list");
@@ -80,24 +91,20 @@ function loadThreads(interest) {
     const threads = JSON.parse(localStorage.getItem(threadsKey(interest)) || "[]");
 
     threads.forEach(thread => {
-        const li = document.createElement("li");
-        li.textContent = thread;
-        li.tabIndex = 0;
-        li.addEventListener("click", () => openThread(thread));
-        // Добавляем в обе области (если есть)
-        if (threadList) threadList.appendChild(li);
-        if (sidebarList) sidebarList.appendChild(li.cloneNode(true));
+        // создаём отдельные элементы для основной колонки и sidebar (чтобы у каждого свой обработчик)
+        if (threadList) threadList.appendChild(makeThreadElement(thread));
+        if (sidebarList) sidebarList.appendChild(makeThreadElement(thread));
     });
 
-    // Обновим подсветку активного треда в sidebar
-    highlightActiveThread();
-
-    // Скрыть секцию постов при смене раздела
+    // Сброс состояния постов при смене раздела
     document.getElementById("post-section").style.display = "none";
     currentThread = "";
 
     // Скрыть плюс (появляетcя при выборе треда)
     setCreatePlusVisible(false);
+
+    // Обновить подсветку
+    highlightActiveThread();
 }
 
 // Создание треда (через поле)
@@ -121,6 +128,7 @@ function createThread() {
 
     if (titleInput) titleInput.value = "";
     loadThreads(currentInterest);
+    openThread(title); // открыть новый тред сразу
 }
 
 // Создание треда через плюс-иконку (prompt)
@@ -140,12 +148,14 @@ function createThreadViaPlus() {
 // Открытие треда
 function openThread(thread) {
     currentThread = thread;
-    document.getElementById("thread-title-display").textContent = "Тред: " + thread;
-    document.getElementById("post-section").style.display = "block";
+    const titleEl = document.getElementById("thread-title-display");
+    if (titleEl) titleEl.textContent = "Тред: " + thread;
+    const postSection = document.getElementById("post-section");
+    if (postSection) postSection.style.display = "block";
 
     loadPosts();
 
-    // показать плюс (по концепции плюс виден после выбора треда)
+    // показать плюс
     setCreatePlusVisible(true);
 
     // подсветить в sidebar
@@ -163,6 +173,16 @@ function highlightActiveThread() {
     const sidebarList = document.getElementById("sidebar-thread-list");
     if (!sidebarList) return;
     Array.from(sidebarList.children).forEach(li => {
+        if (li.textContent === currentThread) {
+            li.classList.add("active-thread");
+        } else {
+            li.classList.remove("active-thread");
+        }
+    });
+
+    const threadList = document.getElementById("thread-list");
+    if (!threadList) return;
+    Array.from(threadList.children).forEach(li => {
         if (li.textContent === currentThread) {
             li.classList.add("active-thread");
         } else {
